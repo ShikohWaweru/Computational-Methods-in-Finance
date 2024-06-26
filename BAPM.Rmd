@@ -1,0 +1,217 @@
+---
+title: "BAPM code"
+author: "145777 BBS FENG"
+date: "2024-04-18"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## simulate from Binomial Asset Pricing Model
+ #The function sim.BAPM is defined to simulate the price path of an asset.
+ sim.BAPM = function (P0,n,r,sigma){
+ #The function sim.BAPM is defined to simulate the price path of an asset.
+ # n is the number or=f periods of the chain.
+ # P0 is the value of the asset at the initial time.
+ # r is the risk free rate.
+ # sigma is the volatility.
+ P = rep(NA,n) #Define a vector for price path
+ P[1] = P0 # Initial price
+ u = exp(sigma/sqrt(n)) # Up- factor
+ d = 1/u #down-factor
+ p = (1+(r/n)-d)/(u-d) # Risk - neutral probability
+ q = 1-p 
+ for(i in 2:n){
+ # It iterates through each period from the second period (i = 2) to the final period (n).
+ # Drawing random toss from an unbiased coin
+ toss = sample (c("Head", "Tail"),1,replace = TRUE, prob = c(p,q))
+ # if head - price goes up by factor u
+ if(toss == "Head")P[i]<-P[i-1]*u
+ #if tail - price goes down by factor d
+ if(toss=="Tail")P[i]<-P[i-1]*d
+ #At each period, it randomly chooses between "Head" and "Tail" (representing up and down movements) with probabilities p and q respectively.
+ #If "Head" is chosen, the price at the next period is updated by multiplying the previous price by the up-factor u. If "Tail" is chosen, the price is updated by multiplying by the down-factor d.
+}
+return(P)
+}
+
+set.seed(1234)
+P = sim.BAPM(P0=100, n=5000, r=1, sigma=1)
+plot(NULL, xlim=c(0,1), ylim=c(min(P), max(P)), xlab="Time", ylab="Price")
+grid(col='cadetblue4', lty=1)
+#The points function overlays the simulated price path on the plot, with the x-values ranging from 0 to 1 (normalized time) and the y-values from the simulated price path. The line is drawn in brown color.
+points(seq(1:5000)/5000, P, type="l", lwd=2, col="brown", lty=1)
+
+ ##Let's break down the code:
+   #This function (sim.BAPM) simulates the price path of an asset using the BAPM for a specified number of periods (n).
+   #It starts with the initial asset price (P0) and calculates the up and down factors (u and d) based on the given volatility (sigma).
+   #Then, it calculates the risk-neutral probabilities of up and down movements (p and q) based on the risk-free rate (r) and the number of periods (n).
+   #Using a loop, it iterates through each period and randomly chooses an up or down movement according to the calculated probabilities. The asset price is     updated accordingly.
+   #Finally, it returns a vector P containing the simulated price path.
+
+
+
+## European Put Option ##
+EuroPut = function(S, T, K, r, sigma, N){
+   #The function EuroPut takes six parameters:
+   #S: The current price of the underlying asset.
+   #T: The time to expiration of the option.
+   #K: The strike price of the option.
+   #r: The risk-free interest rate.
+   #sigma: The volatility of the underlying asset.
+   #N: The number of steps in the binomial tree.
+ dT=T/N #length of each subinterval
+ u=exp(sigma*sqrt(dT)) #using the CRR model
+ d=1/u
+ p=(exp(r*dT)-d)/(u-d)
+  #It calculates the length of each subinterval dT as T/N.
+  #It computes the up-factor u and down-factor d based on the Cox-Ross-Rubinstein (CRR) model, which is a specific variation of the binomial model for option pricing.
+  #It calculates the risk-neutral probability p using the risk-free rate r, the length of each subinterval dT, and the up and down factors.
+  
+ tree=matrix(NA,nrow=(N+1),ncol=(N+1)) #setting up the matrix
+ for (i in 0:N) {
+  tree[i+1,N+1]=max(0,(K-S*u^i*d^(N-i)))
+  #The pay-off at terminaltime with i upward movements
+}
+ for(j in (N-1):0){
+  for (i in 0:j){
+  tree[i+1,j+1]=exp(-r*dT)*(p*tree[i+2,j+2]+(1-p)*tree[i+1,j+2])
+  #The expected value of the optionat each previous step
+}
+}
+price=tree[1,1]
+return(price)
+}
+
+   #It initializes a matrix tree to store option prices at different points in time and different levels of the asset price.
+   #Using a loop from 0 to N, it calculates the payoff of the put option at expiration (T) for all possible asset price levels. This is done by taking the maximum between zero and the difference between the strike price K and the asset price at each level (S * u^i * d^(N-i)).
+   #Then, it iterates backward through time, starting from the second-to-last period (j = N-1) down to the first period (j = 0). Within each time step, it iterates through each possible asset price level (i), calculating the expected option value at that level using the risk-neutral probabilities and discounting.
+   #Finally, it returns the price of the European put option, which is stored in the top-left corner of the tree matrix (tree[1,1]). 
+   
+EuroPut(S=10,T=10,K=11,r=0.05,sigma=0.1,N=10)
+
+  ##Let's break down the code:
+   #This function calculates the price of a European put option using the BAPM.
+   #It initializes a matrix tree to store option prices at different points in time and different levels of the asset price.
+   #Using nested loops, it first calculates the option payoff at expiration for all possible asset price levels.
+   #Then, it iterates backward through time, calculating the expected option value at each previous step using the risk-neutral probabilities and discounting.
+   #Finally, it returns the price of the European put option.
+   
+
+
+## Amercian Call Option ##
+AmericanCall = function(T, S, K, r,sigma, N) {
+dT = T / N
+u = exp(sigma * sqrt(dT))
+d = 1/u
+p=(exp(r*dT)-d)/(u-d)
+   #It calculates the length of each time step dT as T/N.
+   #It computes the up-factor u and down-factor d based on the given volatility sigma and the length of each time step dT.
+   #It calculates the risk-neutral probability p using the risk-free rate r, the length of each time step dT, and the up and down factors.
+   #It initializes a matrix tree to store option prices at different points in time and different levels of the asset price. The matrix has dimensions (N+1) x (N+1).
+   
+tree=matrix(NA,nrow=(N+1),ncol=(N+1))
+for(i in 0:N){
+tree[i+1,N+1] = max(0,(S*u^i*d^(N-i)-K))
+}
+for(j in (N-1):0){
+for(i in 0:j){
+# binomial value
+tree[i+1,j+1] = exp(-r*dT)*(p*tree[i+2,j+2]+(1-p)*tree[i+1,j+2])
+# exercise value
+exercise = S*u^i*d^(j-i)-K
+if(tree[i+1,j+1] < exercise) tree[i+1,j+1] = exercise #***
+}
+}
+americanCall = tree[1,1]
+return(americanCall)
+}
+   #Using a loop from 0 to N, it calculates the payoff of the call option at expiration (T) for all possible asset price levels. This is done by taking the maximum between zero and the difference between the asset price at each level (S * u^i * d^(N-i)) and the strike price K.
+   #Then, it iterates backward through time, starting from the second-to-last period down to the first period. Within each time step, it iterates through each possible asset price level, calculating the expected option value at that level using the risk-neutral probabilities and discounting. It also checks for early exercise by comparing the option value with the intrinsic value (S*u^i*d^(j-i)-K) and updates the option value if early exercise is beneficial.
+   #Finally, it returns the price of the American call option, which is stored in the top-left corner of the tree matrix (tree[1,1]).
+
+AmericanCall(S=12,T=10,K=12,r=0.05/250,sigma=0.01,N=100)
+
+
+  ##This function calculates the price of an American call option using the BAPM.
+ #It initializes the tree matrix to store option prices.
+ #It calculates option prices at expiration for all possible asset price levels.
+ #Then, it iterates backward through time, calculating the option value at each previous step by comparing the intrinsic value of early exercise with the option value from continuing.
+ #It returns the price of the American call option.
+ 
+## European Call Option ##
+ EuroCall = function(S, T, K, r, sigma, N){
+  dT = T/N  # Length of each subinterval
+  u = exp(sigma * sqrt(dT))  # Using the CRR model
+  d = 1/u
+  p = (exp(r*dT) - d)/(u - d)
+   #It calculates the length of each subinterval dT as T/N.
+   #It computes the up-factor u and down-factor d based on the Cox-Ross-Rubinstein (CRR) model, which is a specific variation of the binomial model for option pricing.
+   #It calculates the risk-neutral probability p using the risk-free rate r, the length of each subinterval dT, and the up and down factors.
+   
+  tree = matrix(NA, nrow=(N+1), ncol=(N+1))  # Setting up the matrix
+    #It initializes a matrix tree to store option prices at different points in time and different levels of the asset price. The matrix has dimensions (N+1) x (N+1).
+    
+  for (i in 0:N) {
+    tree[i+1, N+1] = max(0, (S * u^i * d^(N-i) - K))
+    # The payoff at terminal time with i upward movements
+  }
+  for (j in (N-1):0) {
+    for (i in 0:j) {
+      tree[i+1, j+1] = exp(-r*dT) * (p*tree[i+2, j+2] + (1-p)*tree[i+1, j+2])
+      # The expected value of the option at each previous step
+      #Using a loop from 0 to N, it calculates the payoff of the call option at expiration (T) for all possible asset price levels. This is done by taking the maximum between zero and the difference between the asset price at each level (S * u^i * d^(N-i)) and the strike price K.
+      #Then, it iterates backward through time, starting from the second-to-last period down to the first period. Within each time step, it iterates through each possible asset price level, calculating the expected option value at that level using the risk-neutral probabilities and discounting.
+    }
+  }
+  price = tree[1, 1]
+  return(price)
+  #Finally, it returns the price of the European call option, which is stored in the top-left corner of the tree matrix (tree[1,1]).
+}
+
+EuroCall(S=10, T=10, K=11, r=0.05, sigma=0.1, N=10)
+
+
+
+## American Put Option ##
+AmericanPut = function(T, S, K, r, sigma, N) {
+  dT = T / N
+  u = exp(sigma * sqrt(dT))
+  d = 1/u
+  p = (exp(r*dT) - d)/(u - d)
+    #It calculates the length of each subinterval dT as T/N.
+    #It computes the up-factor u and down-factor d based on the Cox-Ross-Rubinstein (CRR) model, which is a specific variation of the binomial model for option pricing.
+    #It calculates the risk-neutral probability p using the risk-free rate r, the length of each subinterval dT, and the up and down factors.
+    
+  tree = matrix(NA, nrow=(N+1), ncol=(N+1))  # Setting up the matrix
+    #It initializes a matrix tree to store option prices at different points in time and different levels of the asset price. The matrix has dimensions (N+1) x (N+1).
+  
+  for(i in 0:N) {
+    tree[i+1, N+1] = max(0, (K - S * u^i * d^(N-i)))
+    # The payoff at terminal time with i upward movements
+  }
+  for(j in (N-1):0) {
+    for(i in 0:j) {
+      # Binomial value
+      tree[i+1, j+1] = exp(-r*dT) * (p * tree[i+2, j+2] + (1-p) * tree[i+1, j+2])
+      # Exercise value
+      exercise = K - S * u^i * d^(j-i)
+      if(tree[i+1, j+1] < exercise) tree[i+1, j+1] = exercise # Early exercise
+        #Using a loop from 0 to N, it calculates the payoff of the put option at expiration (T) for all possible asset price levels. This is done by taking the maximum between zero and the difference between the strike price K and the asset price at each level (S * u^i * d^(N-i)).
+        #Then, it iterates backward through time, starting from the second-to-last period down to the first period. Within each time step, it iterates through each possible asset price level, calculating the expected option value at that level using the risk-neutral probabilities and discounting. It also checks for early exercise by comparing the option value with the intrinsic value (K - S * u^i * d^(j-i)) and updates the option value if early exercise is beneficial.
+    }
+  }
+  americanPut = tree[1, 1]
+  return(americanPut)
+    #Finally, it returns the price of the American put option, which is stored in the top-left corner of the tree matrix (tree[1,1]).
+}
+
+AmericanPut(S=12, T=10, K=12, r=0.05/250, sigma=0.01, N=100)
+
+

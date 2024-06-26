@@ -1,0 +1,345 @@
+---
+title: "Assignment on Finite Difference Methods: Explicit, Implicit, Crank-Nicolson"
+author: "145777 BBS FENG"
+date: "2024-06-07"
+output:
+  html_document:
+    df_print: paged
+---
+
+#IMPLICIT METHOD
+  #EUROPEAN CALL AND put_price
+# Load necessary libraries
+library(data.table)
+
+# Define parameters for the option
+S0 <- 50        # Initial stock price
+K <- 50         # Strike price
+T <- 1          # Time to maturity in years
+r <- 0.05       # Risk-free interest rate
+sigma <- 0.2    # Volatility
+N <- 100        # Number of time steps
+M <- 100        # Number of price steps
+
+# Discretize the time and stock price
+dt <- T / N
+ds <- S0 / M
+
+# Create the grid
+S <- seq(0, 2 * S0, by = ds)
+t <- seq(0, T, by = dt)
+
+# Initialize option price matrices
+call_values <- matrix(0, nrow = length(S), ncol = length(t))
+put_values <- matrix(0, nrow = length(S), ncol = length(t))
+
+# Set the terminal condition for call and put options
+call_values[, ncol(call_values)] <- pmax(S - K, 0)
+put_values[, ncol(put_values)] <- pmax(K - S, 0)
+
+# Boundary conditions
+call_values[1, ] <- 0
+call_values[nrow(call_values), ] <- (max(S) - K) * exp(-r * (T - t))
+
+put_values[1, ] <- (K - 0) * exp(-r * (T - t))
+put_values[nrow(put_values), ] <- 0
+
+# Finite difference coefficients
+alpha <- 0.5 * dt * (sigma^2 * (0:M)^2 - r * (0:M))
+beta <- 1 - dt * (sigma^2 * (0:M)^2 + r)
+gamma <- 0.5 * dt * (sigma^2 * (0:M)^2 + r * (0:M))
+
+# Loop through time steps
+for (j in (length(t) - 1):1) {
+  for (i in 2:(length(S) - 1)) {
+    call_values[i, j] <- alpha[i] * call_values[i - 1, j + 1] +
+      beta[i] * call_values[i, j + 1] +
+      gamma[i] * call_values[i + 1, j + 1]
+    
+    put_values[i, j] <- alpha[i] * put_values[i - 1, j + 1] +
+      beta[i] * put_values[i, j + 1] +
+      gamma[i] * put_values[i + 1, j + 1]
+    
+    # Check for early exercise
+    call_values[i, j] <- max(call_values[i, j], S[i] - K)
+    put_values[i, j] <- max(put_values[i, j], K - S[i])
+  }
+}
+
+# Interpolate to find the option price at S0
+call_price <- approx(S, call_values[, 1], xout = S0)$y
+put_price <- approx(S, put_values[, 1], xout = S0)$y
+
+cat("American Call Option Price: ", call_price, "\n")
+cat("American Put Option Price: ", put_price, "\n")
+
+
+####IMPLICIT METHOD#####
+#EUROPEAN PUT
+# Define the function for the implicit finite difference method for a European put option
+implicit_fd_put <- function(S0, K, r, sigma, T, N, M) {
+  # S0: Initial stock price
+  # K: Strike price
+  # r: Risk-free interest rate
+  # sigma: Volatility
+  # T: Time to maturity
+  # N: Number of time steps
+  # M: Number of space steps
+  
+  # # Calculate the time step and space step
+  dt <- T / N
+  dS <- (S0 * 2) / M
+  
+  # # Create the grid of stock prices
+  S <- seq(0, S0 * 2, dS)
+  
+  # # Initialize the option price matrix
+  V <- matrix(0, nrow = N + 1, ncol = M + 1)
+  
+  # # Set the boundary conditions
+  # # Boundary condition for stock price = 0
+  V[, 1] <- K
+  
+  # # Boundary condition for stock price = S0*2
+  V[, M + 1] <- 0
+  
+  # # Set the final condition
+  V[N + 1, ] <- pmax(K - S, 0)
+  
+  # # Create the tridiagonal matrix A
+  A <- matrix(0, nrow = M - 1, ncol = M - 1)
+  # # Main diagonal
+  A[cbind(1:(M - 1), 1:(M - 1))] <- 1 + dt * r + 0.5 * dt * sigma^2 * (S[2:(M)] / dS)^2
+  # # Lower diagonal
+  A[cbind(2:(M - 1), 1:(M - 2))] <- -0.5 * dt * sigma^2 * (S[2:(M - 1)] / dS)^2 - 0.5 * dt * r * S[2:(M - 1)] / dS
+  # # Upper diagonal
+  A[cbind(1:(M - 2), 2:(M - 1))] <- -0.5 * dt * sigma^2 * (S[2:(M - 1)] / dS)^2 + 0.5 * dt * r * S[2:(M - 1)] / dS
+  
+  # # Loop through the time steps
+  for (i in N:1) {
+    # # Extract the right-hand side vector
+    b <- V[i + 1, 2:M]
+    
+    # # Solve the linear system
+    V[i, 2:M] <- solve(A, b)
+    
+    # # Update the option price matrix with the solution
+    V[i, 2:M] <- V[i, 2:M] * exp(-r * dt)
+  }
+  
+  # # Return the option price at the initial stock price
+  return(V[1, which.min(abs(S - S0))])
+}
+
+# Example question
+# Calculate the price of a European put option with the following parameters:
+S0 <- 100
+K <- 100
+r <- 0.05
+sigma <- 0.2
+T <- 1
+N <- 100
+M <- 100
+
+# Call the implicit finite difference method function
+put_price <- implicit_fd_put(S0, K, r, sigma, T, N, M)
+print(paste("European put price:", put_price))
+
+
+
+
+#IMPLICIT##EUROPEAN CALL
+
+#Load necessary libraries
+library(Matrix)  # For sparse matrix operations
+
+# Parameters
+Smax <- 100  # Maximum stock price
+Smin <- 0    # Minimum stock price
+M <- 100     # Number of stock price steps
+N <- 1000    # Number of time steps
+K <- 50      # Strike price
+T <- 1       # Time to maturity (in years)
+r <- 0.05    # Risk-free interest rate
+sigma <- 0.2 # Volatility
+
+# Discretization
+dS <- (Smax - Smin) / M  # Stock price step size
+dt <- T / N              # Time step size
+
+# Initialize stock price grid and option value matrix
+S <- seq(Smin, Smax, length.out = M + 1)  # Stock prices from Smin to Smax
+V <- matrix(0, nrow = M + 1, ncol = N + 1)  # Option value matrix
+
+# Boundary conditions for European Call
+V[, N + 1] <- pmax(S - K, 0)  # Payoff at maturity for call options
+
+# Coefficients for the tridiagonal matrix
+alpha <- 0.5 * dt * (sigma^2 * (0:M)^2 - r * (0:M))
+beta <- -dt * (sigma^2 * (0:M)^2 + r)
+gamma <- 0.5 * dt * (sigma^2 * (0:M)^2 + r * (0:M))
+
+# Tridiagonal matrix construction
+A <- sparseMatrix(
+  i = c(1:M, 2:(M+1), 1:(M-1)), 
+  j = c(2:(M+1), 1:M, 1:(M-1)), 
+  x = c(alpha[2:(M+1)], beta[1:M+1], gamma[1:(M-1)])
+)
+A <- A + Diagonal(M + 1)  # Add the identity matrix to A
+
+# Time stepping loop for the implicit finite difference method
+for (j in N:1) {  # Loop backwards in time
+  V[2:M, j] <- solve(A[2:M, 2:M], V[2:M, j + 1])  # Solve the system of equations
+  
+  # Boundary conditions at Smin and Smax
+  V[1, j] <- 2 * V[2, j] - V[3, j]  # Linear extrapolation for Smin
+  V[M + 1, j] <- 2 * V[M, j] - V[M - 1, j]  # Linear extrapolation for Smax
+}
+
+# Extract the option value at the initial time and the initial stock price S=50
+initial_stock_price_index <- which.min(abs(S - 50))
+call_value <- V[initial_stock_price_index, 1]
+
+# Print the result
+cat("European Call Option Value at S=50: ", call_value, "\n")
+
+
+###CRANK-NICOLSON##
+##EUROPEAN CALL##
+# Parameters
+S0 <- 50     # Initial stock price
+K <- 50      # Strike price
+T <- 5       # Time to maturity in years
+r <- 0.05    # Risk-free interest rate
+sigma <- 0.2 # Volatility
+M <- 100     # Number of time steps
+N <- 100     # Number of price steps
+
+# Calculated parameters
+dt <- T / M  # Time step
+dS <- 2 * S0 / N  # Price step
+alpha <- dt * sigma^2 / (2 * dS^2)
+beta <- dt * r / (2 * dS)
+
+# Initialize grid
+grid <- matrix(0, nrow = N + 1, ncol = M + 1)
+S <- seq(0, 2 * S0, by = dS)
+
+# Boundary conditions at maturity for a call option
+grid[, M + 1] <- pmax(S - K, 0)
+
+# Boundary conditions at S=0 and S=2*S0
+grid[1, ] <- 0  # At S=0, call option value is 0
+grid[N + 1, ] <- 2 * S0 - K * exp(-r * (T - (0:M) * dt))  # Linear payoff for large S
+
+# Coefficients for the tridiagonal matrix
+a <- -alpha * (1:(N - 1)) + beta / 2
+b <- 1 + dt * r + 2 * alpha
+c <- -alpha * (1:(N - 1)) - beta / 2
+
+# Function to perform the Crank-Nicolson finite difference method
+tridiag_solve <- function(a, b, c, rhs) {
+  n <- length(rhs)
+  x <- numeric(n)
+  b_tilde <- numeric(n)
+  rhs_tilde <- numeric(n)
+  
+  b_tilde[1] <- b[1]
+  rhs_tilde[1] <- rhs[1]
+  
+  for (i in 2:n) {
+    b_tilde[i] <- b[i] - a[i] * c[i - 1] / b_tilde[i - 1]
+    rhs_tilde[i] <- rhs[i] - a[i] * rhs_tilde[i - 1] / b_tilde[i - 1]
+  }
+  
+  x[n] <- rhs_tilde[n] / b_tilde[n]
+  
+  for (i in (n - 1):1) {
+    x[i] <- (rhs_tilde[i] - c[i] * x[i + 1]) / b_tilde[i]
+  }
+  
+  return(x)
+}
+
+# Time stepping
+for (j in M:1) {
+  rhs <- alpha * grid[1:(N - 1), j + 1] + (1 - dt * r - 2 * alpha) * grid[2:N, j + 1] + alpha * grid[3:(N + 1), j + 1]
+  grid[2:N, j] <- tridiag_solve(a, b, c, rhs)
+}
+
+# Interpolating the result for the initial stock price
+option_price <- approx(x = S, y = grid[, 1], xout = S0)$y
+
+# Print the option price
+print(paste("The price of the European call option is:", round(option_price,2)))
+         
+
+##european put
+# Parameters
+S0 <- 50     # Initial stock price
+K <- 50      # Strike price
+T <- 5       # Time to maturity in years
+r <- 0.05    # Risk-free interest rate
+sigma <- 0.2 # Volatility
+M <- 100     # Number of time steps
+N <- 100     # Number of price steps
+
+# Calculated parameters
+dt <- T / M  # Time step
+dS <- 2 * S0 / N  # Price step
+alpha <- dt * sigma^2 / (2 * dS^2)
+beta <- dt * r / (2 * dS)
+
+# Initialize grid
+grid <- matrix(0, nrow = N + 1, ncol = M + 1)
+S <- seq(0, 2 * S0, by = dS)
+
+# Boundary conditions at maturity for a put option
+grid[, M + 1] <- pmax(K - S, 0)
+
+# Boundary conditions at S=0 and S=2*S0
+grid[1, ] <- K * exp(-r * (T - (0:M) * dt))  # At S=0, put option value is the present value of the strike price
+grid[N + 1, ] <- 0  # At S=2*S0, put option value is 0
+
+# Coefficients for the tridiagonal matrix
+a <- -alpha * (1:(N - 1)) + beta / 2
+b <- 1 + dt * r + 2 * alpha
+c <- -alpha * (1:(N - 1)) - beta / 2
+
+# Function to perform the Crank-Nicolson finite difference method
+tridiag_solve <- function(a, b, c, rhs) {
+  n <- length(rhs)
+  x <- numeric(n)
+  b_tilde <- numeric(n)
+  rhs_tilde <- numeric(n)
+  
+  b_tilde[1] <- b[1]
+  rhs_tilde[1] <- rhs[1]
+  
+  for (i in 2:n) {
+    b_tilde[i] <- b[i] - a[i] * c[i - 1] / b_tilde[i - 1]
+    rhs_tilde[i] <- rhs[i] - a[i] * rhs_tilde[i - 1] / b_tilde[i - 1]
+  }
+  
+  x[n] <- rhs_tilde[n] / b_tilde[n]
+  
+  for (i in (n - 1):1) {
+    x[i] <- (rhs_tilde[i] - c[i] * x[i + 1]) / b_tilde[i]
+  }
+  
+  return(x)
+}
+
+# Time stepping
+for (j in M:1) {
+  rhs <- alpha * grid[1:(N - 1), j + 1] + (1 - dt * r - 2 * alpha) * grid[2:N, j + 1] + alpha * grid[3:(N + 1), j + 1]
+  grid[2:N, j] <- tridiag_solve(a, b, c, rhs)
+}
+
+# Interpolating the result for the initial stock price
+option_price <- approx(x = S, y = grid[, 1], xout = S0)$y
+
+# Print the option price
+print(paste("The price of the European put option is:", round(option_price, 2)))
+                                                               
+                                                               

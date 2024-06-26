@@ -1,0 +1,38 @@
+---
+title: "Trinomial Model"
+author: "145777 BBS FENG"
+date: "2024-04-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Trinomial Trees European Call
+trinomialEC<-function(S0=100,K=100,T=1,sig=0.2,r=0.06,N=3){
+  dt <- T/N  ###length of each time step
+  dx <- sig*sqrt(3*dt) ##size of each 
+  nu <- r - 0.5*sig^2 
+  edx <- exp(dx)
+  pu <- 0.5*((sig^2*dt+nu^2*dt^2)/(dx^2)+nu*dt/dx)
+  pd <- 0.5*((sig^2*dt+nu^2*dt^2)/(dx^2)-nu*dt/dx)
+  pm <- 1 - pu - pd
+  disc <- exp(-r*dt)
+  
+  S_mat <- matrix(ncol=2*N+1,nrow=N+1)
+  S_mat[1,N+1]<-S0
+  for(i in 1:N){
+    S_mat[i+1,(N+1-i):(N+1+i)]<- S0*(exp(((-i:i)*dx)))
+  }
+  
+  V_mat <- matrix(ncol=2*N+1,nrow=N+1)
+  V_mat[N+1,] <- pmax(S_mat[N+1,]-K,0)
+  for(i in N:1){
+    V_mat[i,(N-i+2):(i+N)]<-disc*(pu*V_mat[i+1,(N-i+3):(i+N+1)] + pm*V_mat[i+1,(N-i+2):(i+N)] + pd*V_mat[i+1,(N-i+1):(i+N-1)])
+  }
+  
+  Price=V_mat[1,N+1]
+  return(Price)
+  
+}
+trinomialEC(S0=100,K=100,T=1,sig=0.2,r=0.06,N=3)

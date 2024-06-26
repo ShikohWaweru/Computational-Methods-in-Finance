@@ -1,0 +1,175 @@
+---
+title: "Finite Difference Methods"
+author: "145777 BBS FENG"
+date: "2024-05-09"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+## Code from Chat r-bloggers.com ##
+ x <- c(0.0, 0.2, 0.4)
+fx <- c(0.00000, 0.74140, 1.3718)
+
+ ##The function is unknown; however, we would still like to approximate the function’s derivative at the values of x.
+ ##The following function combines the forward and backward differencing methods to approximate the derivative of the function at each value of x.
+
+finite.differences <- function(x, y) {
+  if (length(x) != length(y)) {
+    stop('x and y vectors must have equal length')
+  }
+  
+  n <- length(x)
+  
+  # Initialize a vector of length n to enter the derivative approximations
+  fdx <- vector(length = n)
+  
+  # Iterate through the values using the forward differencing method
+  for (i in 2:n) {
+    fdx[i-1] <- (y[i-1] - y[i]) / (x[i-1] - x[i])
+  }
+  
+  # For the last value, since we are unable to perform the forward differencing method 
+  # as only the first n values are known, we use the backward differencing approach
+  # instead. Note this will essentially give the same value as the last iteration 
+  # in the forward differencing method, but it is used as an approximation as we 
+  # don't have any more information
+  fdx[n] <- (y[n] - y[n - 1]) / (x[n] - x[n - 1])
+  
+  return(fdx)
+}
+
+ ##Using the function, perform each differencing method on the x
+ values and the evaluated points f(x).
+
+finite <- finite.differences(x, fx)
+finite
+
+ ##Let’s assume the data from earlier was taken from the function ex−2x2+3x−1.
+
+f <- function(x) {
+  return(exp(x) - 2 * x^2 + 3 * x - 1)
+}
+
+ ##Using the central differencing method and the given function, we can approximate the derivative at each point. As h approaches 0, the approximation becomes more accurate. The following function approximates the values of the derivative at the given points at several different values of h to demonstrate how the approximations converge.
+
+
+## CENTRAL DIFFERENCE ##
+central.difference <- function(f, x) {
+  steps <- c(0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001)
+  n <- length(steps)
+  
+  fdx <- vector(length = n)
+  
+ ##Print the approximations of the derivative.  
+  
+  for (h in 1:n) {
+    fdx[h] <- (f(x + 0.5 * steps[h]) - f(x - 0.5 * steps[h])) / steps[h]
+  }
+  
+  return(fdx)
+}
+
+  ##Print the approximations of the derivative 
+
+for (i in x) {
+  print(central.difference(f, i))
+}
+
+ ##We see the approximations converge rather quickly as h
+ approaches 0, giving the following approximations:
+
+  ##f′(0.0)≈4.00000f′(0.2)≈3.421403f′(0.4)≈2.891825
+  
+  ##The derivative of the function is ex−4x+3. We shall compare our approximated values of with the actual values of the derivative at x to see how the central differencing method faired.
+  
+fdx <- function(x) {
+  return(exp(x) - 4 * x + 3)
+}
+
+  ##For fun, plot both the function and its derivative to get a visualization of where the function’s derivative is at the values of x.
+
+
+library(ggplot2)
+ggplot(data = data.frame(x = 0), mapping = aes(x = x)) + 
+  stat_function(fun = f, size = 1.25, alpha = 0.75) +
+  stat_function(fun = fdx, size = 1.25, color = 'blue', alpha = 0.75) +
+  xlim(-3,3)
+
+  ##Print the calculated derivative’s values for each x
+ and compare them with our previously approximated values.
+  
+actual <- vector(length = length(x))
+central.approx <- c(4.00000, 3.421403, 2.891825)
+for (i in 1:length(x)) {
+  actual[i] <- fdx(x[i])
+}
+approx.df <- data.frame(cbind(actual, central.approx, actual - central.approx, finite, actual - finite))
+colnames(approx.df) <- c('Actual Values', 'Central Difference Approx', 'Central Differences Error', 'Finite Differences', 'Finite Differences Error')
+approx.df  
+
+
+## BACKWARD DIFFERENCE ##
+backward.difference <- function(f, x) {
+  steps <- c(0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001)
+  n <- length(steps)
+  
+  fdx <- vector(length = n)
+  
+ ##Print the approximations of the derivative.  
+  
+  for (h in 1:n) {
+    fdx[h] <- (f(x + 0.5 * steps[h]) - f(x - 0.5 * steps[h])) / steps[h]
+  }
+ #review above
+  
+  return(fdx)
+}
+
+  ##Print the approximations of the derivative 
+
+for (i in x) {
+  print(backward.difference(f, i))
+}
+
+ ##We see the approximations converge rather quickly as h
+ approaches 0, giving the following approximations:
+
+  ##f′(0.0)≈4.00000f′(0.2)≈3.421403f′(0.4)≈2.891825
+  
+  ##The derivative of the function is ex−4x+3. We shall compare our approximated values of with the actual values of the derivative at x to see how the backward differencing method faired.
+  
+fdx <- function(x) {
+  return(exp(x) - 4 * x + 3)
+}
+
+  ##For fun, plot both the function and its derivative to get a visualization of where the function’s derivative is at the values of x.
+
+
+library(ggplot2)
+ggplot(data = data.frame(x = 0), mapping = aes(x = x)) + 
+  stat_function(fun = f, size = 1.25, alpha = 0.75) +
+  stat_function(fun = fdx, size = 1.25, color = 'blue', alpha = 0.75) +
+  xlim(-3,3)
+
+  ##Print the calculated derivative’s values for each x
+ and compare them with our previously approximated values.
+  
+actual <- vector(length = length(x))
+backward.approx <- c(4.00000, 3.421403, 2.891825)
+for (i in 1:length(x)) {
+  actual[i] <- fdx(x[i])
+}
+approx.df <- data.frame(cbind(actual, backward.approx, actual - backward.approx, finite, actual - finite))
+colnames(approx.df) <- c('Actual Values', 'Backward Difference Approx', 'Backward Differences Error', 'Finite Differences', 'Finite Differences Error')
+approx.df  
+

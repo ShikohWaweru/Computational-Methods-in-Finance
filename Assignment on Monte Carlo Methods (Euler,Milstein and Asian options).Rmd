@@ -1,0 +1,222 @@
+---
+title: "Monte Carlo Methods (Coding Assignment)_Euler,Milstein and Asian options"
+author: "145777 BBS FENG"
+date: "2024-06-26"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### EulerMC that calculates the price of a European option (call or put) using a Monte Carlo simulation ###
+
+EulerMC <- function(Type = "c", S = 100, K = 100, T = 1/12, r = 0.1, sigma = 0.25, n = 300, m = 100, dt = T/n)
+
+    #Type: The type of option ("c" for call, "p" for put).
+    #S: The initial stock price.
+    #K: The strike price of the option.
+    #T: The time to maturity (in years).
+    #r: The risk-free interest rate.
+    #sigma: The volatility of the stock.
+    #n: The number of time steps in the simulation.
+    #m: The number of simulated paths.
+    #dt: The size of each time step (default is T/n).
+{
+  sum <- 0
+  
+    #sum: Initializes the variable to accumulate the payoff values of the simulated paths.  
+  
+  for (i in 1:m) {  # number of simulated paths
+    S_current <- S
+    for (j in 1:n) {  # length of path
+      E <- rnorm(1, 0, 1)
+      S_current <- S_current + r * S_current * dt + sigma * S_current * sqrt(dt) * E
+      
+    #Outer loop (i in 1:m): Iterates over the number of simulated paths.
+    #S_current <- S: Sets the initial stock price for the current path.
+    #Inner loop (j in 1:n): Iterates over the time steps for the current path.
+    #E <- rnorm(1, 0, 1): Generates a random sample from the standard normal distribution.
+    #S_current <- S_current + r * S_current * dt + sigma * S_current * sqrt(dt) * E: Updates the stock price  using the Euler discretization method. 
+    
+    }
+    
+    if (Type == "c") {
+      payoff <- max(S_current - K, 0)
+    } else if (Type == "p") {
+      payoff <- max(K - S_current, 0)
+    } else {
+      payoff <- max(S_current - K, 0)  # default
+      
+    #If Type is "c" (call option), the payoff is max(S_current - K, 0).
+    #If Type is "p" (put option), the payoff is max(K - S_current, 0).
+    #If Type is neither "c" nor "p", the default is treated as a call option.      
+    }
+    
+    sum <- sum + payoff
+    
+    #Adds the calculated payoff to the sum variable.    
+  }
+  
+  OptionValue <- (sum * exp(-r * T)) / m
+  return(OptionValue)
+  
+    #OptionValue: Computes the average present value of the payoff by discounting it at the risk-free rate and dividing by the number of paths m.  
+  
+}
+
+ # Example usage
+option_price <- EulerMC(Type = "c", S = 100, K = 100, T = 1/12, r = 0.1, sigma = 0.25, n = 300, m = 100)
+print(option_price)
+
+    #Calls the EulerMC function to calculate the price of a European call option with the specified parameters and prints the result.
+    
+  ##SUMMARY ##
+    #The function EulerMC simulates the stock price paths using the Euler method and calculates the option price by averaging the discounted payoffs from these paths. The Monte Carlo method is a powerful technique for option pricing, especially when analytical solutions are not available.
+    
+    
+### Using MCAsian Function to calculate the price of an Asian Option (call or put) using a Monte Carlo Simulation ###   
+
+MCAsian <- function(Type = "c", S = 100, K = 100, T = 1/12, r = 0.1, sigma = 0.25, n = 300, m = 100, dt = T/n) {
+    #Type: The type of option ("c" for call, "p" for put).
+    #S: The initial stock price.
+    #K: The strike price of the option.
+    #T: The time to maturity (in years).
+    #r: The risk-free interest rate.
+    #sigma: The volatility of the stock.
+    #n: The number of time steps in the simulation.
+    #m: The number of simulated paths.
+    #dt: The size of each time step (default is T/n).
+
+  sum <- 0
+  
+    #sum: Initializes the variable to accumulate the payoff values of the simulated paths.  
+  
+  for (i in 1:m) {  # number of simulated paths
+    S_current <- S
+    Asum <- 0  # for cumulative sum along the path
+    
+    #Outer loop (i in 1:m): Iterates over the number of simulated paths.
+    #S_current <- S: Sets the initial stock price for the current path.
+    #Asum <- 0: Initializes the cumulative sum of the stock prices along the path.
+    
+    for (j in 1:n) {  # length of path
+      E <- rnorm(1, 0, 1)
+      S_current <- S_current + r * S_current * dt + sigma * S_current * sqrt(dt) * E
+      Asum <- Asum + S_current
+      
+    #Inner loop (j in 1:n): Iterates over the time steps for the current path.
+    #E <- rnorm(1, 0, 1): Generates a random sample from the standard normal distribution.
+    #S_current <- S_current + r * S_current * dt + sigma * S_current * sqrt(dt) * E: Updates the stock price using the Euler discretization method.
+    #Asum <- Asum + S_current: Adds the current stock price to the cumulative sum.      
+    }
+    
+    if (Type == "c") {
+      payoff <- max((1/n) * Asum - K, 0)
+    } else if (Type == "p") {
+      payoff <- max(K - (1/n) * Asum, 0)
+    } else {
+      payoff <- max((1/n) * Asum - K, 0)  # default
+      
+    #If Type is "c" (call option), the payoff is max((1/n) * Asum - K, 0), which is the maximum of the average stock price minus the strike price and zero.
+    #If Type is "p" (put option), the payoff is max(K - (1/n) * Asum, 0), which is the maximum of the strike price minus the average stock price and zero.
+    #If Type is neither "c" nor "p", the default is treated as a call option.  
+    
+    }
+    
+    sum <- sum + payoff
+    
+    #Adds the calculated payoff to the sum variable.
+    
+  }
+  
+  OptionValue <- (sum * exp(-r * T)) / m
+  return(OptionValue)
+  
+    #OptionValue: Computes the average present value of the payoff by discounting it at the risk-free rate and dividing by the number of paths m.
+    
+}
+
+ # Example usage
+asian_option_price <- MCAsian(Type = "c", S = 100, K = 100, T = 1/12, r = 0.1, sigma = 0.25, n = 300, m = 100)
+print(asian_option_price)
+
+     #Calls the MCAsian function to calculate the price of an Asian call option with the specified parameters and prints the result.
+     
+  ## SUMMARY ##
+    #The MCAsian function simulates stock price paths using the Euler method and calculates the option price by averaging the discounted payoffs from these paths. The payoff of an Asian option is based on the average price of the underlying asset over the path, making it different from standard European or American options. The Monte Carlo method is a powerful technique for option pricing, especially when analytical solutions are not available.
+     
+     
+### Using a MilsteinMC that calculates the price of a European option (call or put) using a Monte Carlo simulation  ###
+
+MilsteinMC <- function(Type = "c", S = 100, K = 100, T = 1/12, r = 0.1, sigma = 0.25, n = 300, m = 100, dt = T/n) {
+
+    #Type: The type of option ("c" for call, "p" for put).
+    #S: The initial stock price.
+    #K: The strike price of the option.
+    #T: The time to maturity (in years).
+    #r: The risk-free interest rate.
+    #sigma: The volatility of the stock.
+    #n: The number of time steps in the simulation.
+    #m: The number of simulated paths.
+    #dt: The size of each time step (default is T/n).
+
+  sum <- 0
+  
+    #sum: Initializes the variable to accumulate the payoff values of the simulated paths.  
+  
+  for (i in 1:m) {  # number of simulated paths
+    S_current <- S
+    
+    #Outer loop (i in 1:m): Iterates over the number of simulated paths.
+    #S_current <- S: Sets the initial stock price for the current path.    
+    
+    for (j in 1:n) {  # length of path
+      E <- rnorm(1, 0, 1)
+      dS <- r * S_current * dt + sigma * S_current * sqrt(dt) * E + 0.5 * sigma^2 * S_current * (E^2 - 1) * dt
+      S_current <- S_current + dS
+      
+    #Inner loop (j in 1:n): Iterates over the time steps for the current path.
+    #E <- rnorm(1, 0, 1): Generates a random sample from the standard normal distribution.
+    #dS: Calculates the change in stock price using the Milstein discretization method, which includes:
+      #The drift term: r * S_current * dt
+      #The diffusion term: sigma * S_current * sqrt(dt) * E
+      #The correction term: 0.5 * sigma^2 * S_current * (E^2 - 1) * dt
+    #S_current <- S_current + dS: Updates the stock price with the calculated change.      
+      
+    }
+    
+    if (Type == "c") {
+      payoff <- max(S_current - K, 0)
+    } else if (Type == "p") {
+      payoff <- max(K - S_current, 0)
+    } else {
+      payoff <- max(S_current - K, 0)  # default
+      
+    #If Type is "c" (call option), the payoff is max(S_current - K, 0).
+    #If Type is "p" (put option), the payoff is max(K - S_current, 0).
+    #If Type is neither "c" nor "p", the default is treated as a call option.      
+      
+    }
+    
+    sum <- sum + payoff
+    
+    #Adds the calculated payoff to the sum variable.    
+    
+  }
+  
+  OptionValue <- (sum * exp(-r * T)) / m
+  return(OptionValue)
+  
+    #OptionValue: Computes the average present value of the payoff by discounting it at the risk-free rate and dividing by the number of paths m.  
+  
+}
+
+# Example usage
+milstein_option_price <- MilsteinMC(Type = "c", S = 100, K = 100, T = 1/12, r = 0.1, sigma = 0.25, n = 300, m = 100)
+print(milstein_option_price)
+
+    #Calls the MilsteinMC function to calculate the price of a European call option with the specified parameters and prints the result.
+    
+  ## SUMMARY ##
+    # The MilsteinMC function simulates stock price paths using the Milstein method, which is a more accurate numerical scheme than the Euler method for simulating stochastic differential equations. The function calculates the option price by averaging the discounted payoffs from these paths. The Milstein method improves accuracy by including a correction term that accounts for the variance of the stock price changes. This method is particularly useful when higher accuracy is desired in Monte Carlo simulations for option pricing.
